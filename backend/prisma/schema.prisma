@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  name         String
+  avatar       String?
+  role         Role          @default(STUDENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  enrollments  Enrollment[]
+  groups       GroupMember[]
+  progress     Progress[]
+  quizAttempts QuizAttempt[]
+
+  @@map("users")
+}
+
+model Course {
+  id          String       @id @default(uuid())
+  title       String
+  description String       @db.Text
+  category    String
+  level       Level
+  duration    Int
+  thumbnail   String?
+  emoji       String?
+  rating      Float        @default(0)
+  students    Int          @default(0)
+  published   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  enrollments Enrollment[]
+  lessons     Lesson[]
+
+  @@map("courses")
+}
+
+model Lesson {
+  id          String     @id @default(uuid())
+  courseId    String
+  title       String
+  description String?    @db.Text
+  type        LessonType
+  content     String     @db.Text
+  duration    Int
+  orderIndex  Int
+  videoUrl    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  course      Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress    Progress[]
+
+  @@index([courseId], map: "lessons_courseId_fkey")
+  @@map("lessons")
+}
+
+model Enrollment {
+  id         String           @id @default(uuid())
+  userId     String
+  courseId   String
+  progress   Float            @default(0)
+  status     EnrollmentStatus @default(IN_PROGRESS)
+  enrolledAt DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId], map: "enrollments_courseId_fkey")
+  @@map("enrollments")
+}
+
+model Progress {
+  id           String    @id @default(uuid())
+  userId       String
+  lessonId     String
+  completed    Boolean   @default(false)
+  timeSpent    Int       @default(0)
+  lastPosition Int       @default(0)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lesson       Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([lessonId], map: "progress_lessonId_fkey")
+  @@map("progress")
+}
+
+model StudyGroup {
+  id          String        @id @default(uuid())
+  name        String
+  description String?       @db.Text
+  courseId    String?
+  maxMembers  Int           @default(10)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     GroupMember[]
+
+  @@map("study_groups")
+}
+
+model GroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  userId   String
+  role     GroupRole  @default(MEMBER)
+  joinedAt DateTime   @default(now())
+  group    StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId], map: "group_members_userId_fkey")
+  @@map("group_members")
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  userId      String
+  lessonId    String
+  score       Float
+  answers     String   @db.LongText
+  attemptedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "quiz_attempts_userId_fkey")
+  @@map("quiz_attempts")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LessonType {
+  VIDEO
+  TEXT
+  QUIZ
+}
+
+enum EnrollmentStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum GroupRole {
+  ADMIN
+  MEMBER
+}
